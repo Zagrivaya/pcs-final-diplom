@@ -7,18 +7,14 @@ import java.io.IOException;
 import java.util.*;
 
 public class BooleanSearchEngine implements SearchEngine {
-    //???
     private Map<String, List<PageEntry>> dataSearch = new HashMap<>();
 
     public BooleanSearchEngine(File pdfsDir) throws IOException {
-        // прочтите тут все pdf и сохраните нужные данные,
-        // тк во время поиска сервер не должен уже читать файлы
-        for (var pdf : pdfsDir.listFiles()) {
+        List<File> listOfPDFFiles = List.of(Objects.requireNonNull(pdfsDir.listFiles()));
+        for (File pdf : listOfPDFFiles) {
             var doc = new PdfDocument(new PdfReader(pdf));
-            int pageCount = doc.getNumberOfPages();
-            for (int i = 1; i <= pageCount; i++) {
-                var page = doc.getPage(i);
-                var text = PdfTextExtractor.getTextFromPage(page).toLowerCase();
+            for (int i = 0; i < doc.getNumberOfPages(); i++) {
+                var text = PdfTextExtractor.getTextFromPage(doc.getPage(i + 1));
                 var words = text.split("\\P{IsAlphabetic}+");
 
                 Map<String, Integer> freqs = new HashMap<>(); // мапа, где ключом будет слово, а значением - частота
@@ -27,28 +23,31 @@ public class BooleanSearchEngine implements SearchEngine {
                         continue;
                     }
                     word = word.toLowerCase();
-                    freqs.put(word, freqs.getOrDefault(word, 0) + 1);
+                    freqs.put(word.toLowerCase(), freqs.getOrDefault(word, 0) + 1);
                 }
-
-                for (String word : freqs.keySet()) {
-                    PageEntry pageEntry = new PageEntry(pdf.getName(), i, freqs.get(word));
-                    if (dataSearch.containsKey(word)) {
-                        dataSearch.get(word).add(pageEntry);
-                    } else {
-                        dataSearch.put(word, new ArrayList<>());
-                        dataSearch.get(word).add(pageEntry);
+                int count;
+                for (var word : freqs.keySet()) {
+                    String wordToLowerCase = word.toLowerCase();
+                    if (freqs.get(wordToLowerCase) != null) {
+                        count = freqs.get(wordToLowerCase);
+                        dataSearch.computeIfAbsent(wordToLowerCase, k -> new ArrayList<>()).add(new PageEntry(pdf.getName(), i + 1, count));
                     }
                 }
+                freqs.clear();
             }
         }
     }
 
     @Override
     public List<PageEntry> search (String word){
-                // тут реализуйте поиск по слову
-        if (dataSearch.containsKey(word)) {
-            return dataSearch.get(word);
+        List<PageEntry> result = new ArrayList<>();
+        String wordToLowerCase = word.toLowerCase();
+        if (dataSearch.get(wordToLowerCase) != null) {
+            for (PageEntry pageEntry : dataSearch.get(wordToLowerCase)) {
+                result.add(pageEntry);
+            }
         }
-        return Collections.emptyList();
+        Collections.sort(result);
+        return result;
     }
 }
