@@ -13,7 +13,7 @@ public class BooleanSearchEngine implements SearchEngine {
         List<File> listOfPDFFiles = List.of(Objects.requireNonNull(pdfsDir.listFiles()));
         for (File pdf : listOfPDFFiles) {
             var doc = new PdfDocument(new PdfReader(pdf));
-            for (int i = 0; i < doc.getNumberOfPages(); i++) {
+            for (int i = 1; i < doc.getNumberOfPages(); i++) {
                 var text = PdfTextExtractor.getTextFromPage(doc.getPage(i + 1));
                 var words = text.split("\\P{IsAlphabetic}+");
 
@@ -25,29 +25,27 @@ public class BooleanSearchEngine implements SearchEngine {
                     word = word.toLowerCase();
                     freqs.put(word.toLowerCase(), freqs.getOrDefault(word, 0) + 1);
                 }
-                int count;
-                for (var word : freqs.keySet()) {
-                    String wordToLowerCase = word.toLowerCase();
-                    if (freqs.get(wordToLowerCase) != null) {
-                        count = freqs.get(wordToLowerCase);
-                        dataSearch.computeIfAbsent(wordToLowerCase, k -> new ArrayList<>()).add(new PageEntry(pdf.getName(), i + 1, count));
+
+                for (Map.Entry<String, Integer> freg : freqs.entrySet()) {
+                    List<PageEntry> pageEntryList = new ArrayList<>();
+                    if (dataSearch.containsKey(freg.getKey())) {
+                        pageEntryList = dataSearch.get(freg.getKey());
                     }
+                    PageEntry pageEntry = new PageEntry(pdf.getName(), i, freg.getValue());
+                    pageEntryList.add(pageEntry);
+                    Collections.sort(pageEntryList);
+                    dataSearch.put(freg.getKey(), pageEntryList);
                 }
-                freqs.clear();
             }
         }
     }
 
     @Override
-    public List<PageEntry> search (String word){
-        List<PageEntry> result = new ArrayList<>();
+    public List<PageEntry> search(String word) {
         String wordToLowerCase = word.toLowerCase();
-        if (dataSearch.get(wordToLowerCase) != null) {
-            for (PageEntry pageEntry : dataSearch.get(wordToLowerCase)) {
-                result.add(pageEntry);
-            }
+        if (dataSearch.containsKey(wordToLowerCase)) {
+            return dataSearch.get(wordToLowerCase);
         }
-        Collections.sort(result);
-        return result;
+        return Collections.emptyList();
     }
 }
